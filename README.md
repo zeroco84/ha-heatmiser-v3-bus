@@ -57,6 +57,8 @@ The climate entity also carries these attributes:
 | `button.heatmiser_network_sync_thermostat_clocks` | Sets every thermostat clock to Home Assistant's time. |
 | `binary_sensor.heatmiser_network_bus` | Connected / disconnected, plus traffic counters (diagnostic). |
 
+**Heating programs** can be written with the `heatmiser_bus.set_program` service (see [Changing programs](#changing-programs)).
+
 **Thermostat clocks** are checked every night at 03:30. Any that are more than 90 seconds out are corrected, which also takes care of the summer/winter clock changes. There's a service too: `heatmiser_bus.sync_clocks` (optional `force: true`).
 
 ## Tested hardware
@@ -200,16 +202,51 @@ To add a thermostat later, remove the integration and add it again. Your entity 
 
 - **Off = Frost.** Choosing Off sets the thermostat to Frost mode, the same as its own Frost setting. It keeps protecting against frost at its frost temperature. The integration never switches a thermostat's power off. If a thermostat *was* powered off at its own keypad, choosing Heat switches it back on.
 - **Set temperature** writes the thermostat's set temperature, the same as pressing +/− on the wall. The thermostat's own program then behaves as it normally does: Heatmiser thermostats typically follow the next programmed comfort level when its time comes. The thermostat keeps the set temperature while in Frost mode, and it applies again when you switch back to Heat.
-- **Programs** are shown as attributes. Editing them from Home Assistant isn't supported yet.
+- **Programs** are shown as attributes and can be changed with `heatmiser_bus.set_program`.
+- **The schedules live in the thermostats, not the Touchpad.** The Touchpad reads them and writes to a thermostat only when you edit something on it. A program written from Home Assistant therefore sticks, and the Touchpad shows it. Any write made by another master is logged and counted (`other_master_writes` on the bus sensor), so you can see if something else changes a thermostat.
 - **Changes are confirmed.** A change is only applied in Home Assistant once the thermostat acknowledges it, normally in under half a second. If no acknowledgement arrives after several tries, Home Assistant shows an error and nothing changes.
 - **Readings** update whenever the Touchpad polls each thermostat, typically every 10 seconds on a 20-thermostat network.
 - A thermostat shows as **unavailable** if it hasn't been heard for 3 minutes.
+
+## Changing programs
+
+`heatmiser_bus.set_program` writes a thermostat's **weekday** (Mon–Fri) or **weekend** (Sat–Sun) program in 5/2-day mode. The program is 1 to 4 periods; at each period's time the thermostat switches to that temperature. Target one room, several rooms, an area or a device, the same as any other service.
+
+```yaml
+action: heatmiser_bus.set_program
+target:
+  entity_id:
+    - climate.living_room
+    - climate.dining_room
+data:
+  day_type: weekday
+  periods:
+    - time: "06:30"
+      temperature: 21
+    - time: "09:00"
+      temperature: 18
+    - time: "16:30"
+      temperature: 21
+    - time: "22:30"
+      temperature: 17
+```
+
+**Rules**
+- **Times must be on the hour or half hour** (`HH:00` / `HH:30`) and in order, earliest first.
+- **Temperatures must be 5–35 °C** in whole degrees.
+- **Fewer than 4 periods** leaves the remaining slots unused, marked the same way the thermostats mark them.
+
+The service refuses anything else before sending a byte. Heatmiser's protocol can reset a thermostat's whole program if it receives out-of-range values.
+
+**Notes**
+- A new program takes effect from the thermostat's next period change, the same as editing it on the wall.
+- 7-day program mode isn't supported by `set_program` yet.
 
 ## Limitations
 
 - **Whole degrees only.** That's what the thermostats report.
 - **One bus per Home Assistant instance.**
-- Programs are decoded in **5/2-day** mode only. 7-day thermostats still work, but their program attribute is empty.
+- Programs are decoded and written in **5/2-day** mode only. 7-day thermostats still work, but their program attribute is empty and `set_program` refuses them.
 - **PRT-HW** hot water and **TM1** timers aren't supported.
 - The integration uses master address **0x82** on the bus. The Touchpad uses 0x81. If something else on your bus already uses 0x82, open an issue.
 - **Not tested without a Touchpad,** or with converters other than the Waveshare above.
@@ -239,7 +276,7 @@ logger:
 - A master (the Touchpad, address `0x81`) sends each thermostat (addresses 1–32) a read request.
 - The thermostat replies with its *DCB* (data control block): settings, temperatures, clock and program.
 - Every frame ends with a CRC-16 (CCITT, initial value 0xFFFF, low byte first).
-- Writes go to specific DCB addresses and are acknowledged with a 7-byte frame.
+- Writes go to specific addresses and are acknowledged with a 7-byte frame. Most write addresses match the DCB position (set temperature 18, frost 17, run mode 23, clock 43). The programs are the exception: they are written at **47** (weekday) and **59** (weekend) but read back at DCB positions 40 and 52.
 
 **What this integration does**
 - It decodes both directions of the Touchpad's traffic and keeps the latest DCB for each thermostat.
@@ -249,5 +286,6 @@ logger:
 
 ## Credits
 
-- The DCB layout and write addresses follow the [heatmiserV3](https://pypi.org/project/heatmiserV3/) Python library and Heatmiser's published V3 protocol notes.
+- The program write addresses (47 weekday, 59 weekend, 103–175 for 7-day) come from North Building Technologies' Heatmiser driver manual. They were confirmed on a live bus.
+- The DCB layout and other write addresses follow the [heatmiserV3](https://pypi.org/project/heatmiserV3/) Python library and Heatmiser's published V3 protocol notes.
 - One correction to the library: the air temperature is a 16-bit value, high byte first, rather than just the low byte.
