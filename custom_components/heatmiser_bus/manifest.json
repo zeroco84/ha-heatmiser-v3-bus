@@ -1,0 +1,14 @@
+{
+  "domain": "heatmiser_bus",
+  "name": "Heatmiser V3 Bus",
+  "codeowners": ["@zeroco84"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/zeroco84/ha-heatmiser-v3-bus",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/zeroco84/ha-heatmiser-v3-bus/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "1.0.0"
+}

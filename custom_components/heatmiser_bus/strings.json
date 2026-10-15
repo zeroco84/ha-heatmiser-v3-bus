@@ -1,0 +1,43 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Heatmiser V3 bus",
+        "description": "Enter the RS485-to-Ethernet converter that is wired to your Heatmiser network (TCP server mode, 4800 baud, 8N1). Leave Thermostats empty and Home Assistant will listen for 20 seconds and list every thermostat it hears. Nothing is sent to the bus during setup.",
+        "data": {
+          "host": "Converter IP address",
+          "port": "TCP port",
+          "thermostats": "Thermostats (optional, manual)"
+        },
+        "data_description": {
+          "thermostats": "Only if auto-discovery can't hear your thermostats: one address=Room name per line, e.g. 3=Kitchen"
+        }
+      },
+      "name": {
+        "title": "Name your thermostats",
+        "description": "Heard {count} thermostats at bus addresses {addresses}. Give each one a room name (you can rename them later in Home Assistant). The address is the network number set on each thermostat."
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to the converter. Check the IP address and port, and that it is in TCP server mode.",
+      "none_heard": "Connected, but no thermostat replies were heard in 20 seconds. Check the wiring polarity and the converter's serial settings (4800 8N1), or enter the thermostats manually.",
+      "bad_thermostats": "Use one address=Room name per line (addresses 1-32)."
+    },
+    "abort": {
+      "already_configured": "This converter is already set up",
+      "single_instance_allowed": "Only one Heatmiser bus can be configured."
+    }
+  },
+  "services": {
+    "sync_clocks": {
+      "name": "Sync thermostat clocks",
+      "description": "Set thermostat clocks to Home Assistant's local time. By default only clocks more than 90 seconds out are changed.",
+      "fields": {
+        "force": {
+          "name": "Force",
+          "description": "Set every thermostat clock, not only the ones that have drifted."
+        }
+      }
+    }
+  }
+}
