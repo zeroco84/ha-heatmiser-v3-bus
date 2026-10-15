@@ -4,3 +4,23 @@ sync_clocks:
       default: false
       selector:
         boolean:
+
+set_program:
+  target:
+    entity:
+      integration: heatmiser_bus
+      domain: climate
+  fields:
+    day_type:
+      required: true
+      example: weekday
+      selector:
+        select:
+          options:
+            - weekday
+            - weekend
+    periods:
+      required: true
+      example: '[{"time": "06:30", "temperature": 21}, {"time": "09:00", "temperature": 18}, {"time": "16:30", "temperature": 21}, {"time": "22:30", "temperature": 17}]'
+      selector:
+        object:

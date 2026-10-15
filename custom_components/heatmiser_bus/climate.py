@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import voluptuous as vol
+
 from homeassistant.components.climate import (
     ATTR_HVAC_MODE,
     ClimateEntity,
@@ -12,6 +14,8 @@ from homeassistant.components.climate import (
     HVACMode,
 )
 from homeassistant.const import ATTR_TEMPERATURE, PRECISION_WHOLE, UnitOfTemperature
+from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import config_validation as cv, entity_platform
 
 from .const import (
     DCB_ERROR,
@@ -30,13 +34,36 @@ from .const import (
     REG_ON_OFF,
     REG_RUN_MODE,
     REG_SET_TEMP,
+    REG_WEEKDAY,
+    REG_WEEKEND,
 )
 from .entity import HeatmiserEntity
-from .protocol import SENSOR_NAMES, current_temp, floor_temp, schedule, word
+from .protocol import SENSOR_NAMES, current_temp, floor_temp, program_payload, schedule, word
+
+def _period_time(value: Any) -> tuple[int, int]:
+    """Accept 'HH:MM' or 'HH:MM:SS' (what the UI time picker sends)."""
+    try:
+        hour, minute = (int(x) for x in str(value).strip().split(":")[:2])
+    except ValueError as err:
+        raise vol.Invalid(f"Invalid time {value!r}; use HH:MM") from err
+    return hour, minute
+
+
+PERIOD_SCHEMA = vol.Schema(
+    {vol.Required("time"): _period_time, vol.Required("temperature"): vol.All(vol.Coerce(int), vol.Range(5, 35))}
+)
+SET_PROGRAM_SCHEMA = {
+    vol.Required("day_type"): vol.In(["weekday", "weekend"]),
+    vol.Required("periods"): vol.All(cv.ensure_list, [PERIOD_SCHEMA], vol.Length(min=1, max=4)),
+}
+
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
     hub = entry.runtime_data
     async_add_entities(HeatmiserClimate(hub, addr) for addr in hub.addresses)
+    entity_platform.async_get_current_platform().async_register_entity_service(
+        "set_program", SET_PROGRAM_SCHEMA, "async_set_program"
+    )
 
 
 class HeatmiserClimate(HeatmiserEntity, ClimateEntity):
@@ -133,6 +160,19 @@ class HeatmiserClimate(HeatmiserEntity, ClimateEntity):
             # Frost mode, not power-off, so frost protection stays on
             if d is None or d[DCB_RUN_MODE] != 1:
                 await self._hub.async_write(self._addr, REG_RUN_MODE, [1])
+
+    async def async_set_program(self, day_type: str, periods: list[dict[str, Any]]) -> None:
+        """Write the weekday or weekend program (5/2-day mode)."""
+        d = self._d
+        if d is not None and d[DCB_PROGRAM_MODE] != 0:
+            raise ServiceValidationError(
+                f"{self.entity_id} is in 7-day program mode, which set_program doesn't support yet"
+            )
+        try:
+            payload = program_payload([(*p["time"], p["temperature"]) for p in periods])
+        except ValueError as err:
+            raise ServiceValidationError(f"{self.entity_id}: {err}") from err
+        await self._hub.async_write(self._addr, REG_WEEKDAY if day_type == "weekday" else REG_WEEKEND, payload)
 
     async def async_turn_on(self) -> None:
         await self.async_set_hvac_mode(HVACMode.HEAT)

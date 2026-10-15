@@ -22,10 +22,14 @@ from homeassistant.util import dt as dt_util
 from .const import (
     DCB_DOW,
     DCB_RUN_MODE,
+    DCB_WEEKDAY,
+    DCB_WEEKEND,
     DOMAIN,
     HA_MASTER,
     REG_RUN_MODE,
     REG_TIME,
+    REG_WEEKDAY,
+    REG_WEEKEND,
     SIGNAL_STATUS,
     SIGNAL_UPDATE,
     STALE_AFTER,
@@ -52,7 +56,7 @@ class HeatmiserBus:
         self.connected = False
         self.touchpad_seen = 0.0
         self.last_rx = 0.0
-        self.stats = {"frames": 0, "writes": 0, "write_retries": 0, "write_failures": 0, "own_polls": 0}
+        self.stats = {"frames": 0, "writes": 0, "write_retries": 0, "write_failures": 0, "own_polls": 0, "other_master_writes": 0}
         self._parser = FrameParser()
         self._writer: asyncio.StreamWriter | None = None
         self._gap_waiters: list[asyncio.Future] = []
@@ -106,6 +110,13 @@ class HeatmiserBus:
                         self.stats["frames"] += 1
                         if kind == "reply":
                             self._on_reply(frame)
+                        elif frame[3] == 1 and frame[2] != self.master:
+                            # Another master (normally the Touchpad) changed a thermostat
+                            self.stats["other_master_writes"] += 1
+                            _LOGGER.info(
+                                "Master 0x%02X wrote thermostat %s address %s: %s",
+                                frame[2], frame[0], frame[4] | (frame[5] << 8), frame[8:-2].hex(" "),
+                            )
             except asyncio.CancelledError:
                 raise
             except Exception as err:  # noqa: BLE001
@@ -224,7 +235,9 @@ class HeatmiserBus:
 
     def _apply_local(self, addr: int, reg: int, payload: list[int]) -> None:
         data = self.dcb.get(addr)
-        if data is None or reg + len(payload) > len(data) or reg >= DCB_DOW:
+        # Program writes go to different addresses than where they are read back
+        reg = {REG_WEEKDAY: DCB_WEEKDAY, REG_WEEKEND: DCB_WEEKEND}.get(reg, reg if reg < DCB_DOW else -1)
+        if data is None or reg < 0 or reg + len(payload) > len(data):
             return
         new = bytearray(data)
         new[reg : reg + len(payload)] = bytes(payload)

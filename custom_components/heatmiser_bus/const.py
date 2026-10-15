@@ -43,5 +43,7 @@ REG_SET_TEMP = 18
 REG_ON_OFF = 21
 REG_RUN_MODE = 23
 REG_TIME = 43
+REG_WEEKDAY = 47  # 4 x (hour, minute, temp); read back at DCB_WEEKDAY
+REG_WEEKEND = 59  # read back at DCB_WEEKEND
 
 MODELS = {0: "DT", 1: "DT-E", 2: "PRT", 3: "PRT-E", 4: "PRT-HW", 5: "TM1"}

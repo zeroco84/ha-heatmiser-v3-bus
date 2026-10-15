@@ -86,6 +86,30 @@ class TestDecode(unittest.TestCase):
         self.assertIsNone(protocol.reply_dcb(WRITE_ACK))
 
 
+class TestProgram(unittest.TestCase):
+    def test_full_program(self):
+        p = protocol.program_payload([(9, 0, 22), (9, 30, 24), (16, 30, 24), (23, 0, 24)])
+        self.assertEqual(bytes(p).hex(), "090016091e18101e18170018")
+
+    def test_unused_slots_match_thermostat_marker(self):
+        # Same bytes the thermostats themselves use for a 2-period weekend
+        p = protocol.program_payload([(9, 0, 22), (22, 0, 22)])
+        self.assertEqual(bytes(p).hex(), "090016160016180010180010")
+
+    def test_rejects_bad_values(self):
+        for periods in (
+            [],
+            [(7, 15, 20)],  # only :00 / :30
+            [(7, 0, 40)],  # 5-35 degC
+            [(24, 0, 20)],
+            [(9, 0, 20), (8, 0, 20)],  # out of order
+            [(9, 0, 20), (9, 0, 21)],  # duplicate
+            [(1, 0, 20)] * 5,
+        ):
+            with self.assertRaises(ValueError, msg=periods):
+                protocol.program_payload(periods)
+
+
 class TestDiscover(unittest.TestCase):
     def test_discover_lists_repliers_only(self):
         async def run():

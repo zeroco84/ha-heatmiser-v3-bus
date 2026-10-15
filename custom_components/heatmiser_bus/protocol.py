@@ -130,6 +130,32 @@ def schedule(d: bytes, start: int) -> list[str]:
     return out
 
 
+UNUSED_SLOT = [24, 0, 16]  # how the thermostats mark an unused program slot
+
+
+def program_payload(periods: list[tuple[int, int, int]]) -> list[int]:
+    """Build the 12-byte weekday/weekend program from 1-4 (hour, minute, temperature) periods.
+
+    Heatmiser only accepts times on the hour or half hour and 5-35 degC; anything else can make
+    the thermostat reset the whole program, so it is rejected here before anything is sent.
+    """
+    if not 1 <= len(periods) <= 4:
+        raise ValueError("A program needs 1 to 4 periods")
+    times = [(h, m) for h, m, _ in periods]
+    if times != sorted(times) or len(set(times)) != len(times):
+        raise ValueError("Period times must be in order, earliest first, with no duplicates")
+    out: list[int] = []
+    for hour, minute, temp in periods:
+        if not 0 <= hour <= 23 or minute not in (0, 30):
+            raise ValueError(f"{hour:02d}:{minute:02d} is not allowed; use HH:00 or HH:30")
+        if not 5 <= temp <= 35:
+            raise ValueError(f"{temp} degC is outside 5-35")
+        out += [hour, minute, temp]
+    while len(out) < 12:
+        out += UNUSED_SLOT
+    return out
+
+
 async def discover(host: str, port: int, seconds: float = 20) -> list[int]:
     """Listen to the bus without transmitting and return the thermostat addresses heard."""
     reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), 10)

@@ -39,7 +39,9 @@ class HeatmiserBusConnected(HeatmiserHubEntity, BinarySensorEntity):
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_should_poll = True  # refresh the traffic counters once a minute
-    _unrecorded_attributes = frozenset({"frames", "writes", "write_retries", "write_failures", "own_polls"})
+    _unrecorded_attributes = frozenset(
+        {"frames", "writes", "write_retries", "write_failures", "own_polls", "other_master_writes"}
+    )
 
     def __init__(self, hub) -> None:
         super().__init__(hub, "bus")

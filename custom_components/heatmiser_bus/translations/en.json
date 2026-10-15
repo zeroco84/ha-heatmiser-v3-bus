@@ -38,6 +38,20 @@
           "description": "Set every thermostat clock, not only the ones that have drifted."
         }
       }
+    },
+    "set_program": {
+      "name": "Set heating program",
+      "description": "Write a thermostat's weekday or weekend program (5/2-day mode). Times must be on the hour or half hour; temperatures 5-35 °C. The thermostat switches to each temperature at its time.",
+      "fields": {
+        "day_type": {
+          "name": "Days",
+          "description": "Weekday (Mon-Fri) or weekend (Sat-Sun) program."
+        },
+        "periods": {
+          "name": "Periods",
+          "description": "1 to 4 periods, earliest first, each with a time (HH:MM, :00 or :30) and a temperature. Unused periods are cleared."
+        }
+      }
     }
   }
 }
