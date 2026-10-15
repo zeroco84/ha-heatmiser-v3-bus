@@ -10,5 +10,5 @@
   "issue_tracker": "https://github.com/zeroco84/ha-heatmiser-v3-bus/issues",
   "requirements": [],
   "single_config_entry": true,
-  "version": "1.0.0"
+  "version": "1.1.0"
 }
