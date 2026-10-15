@@ -46,7 +46,16 @@ def _period_time(value: Any) -> tuple[int, int]:
         hour, minute = (int(x) for x in str(value).strip().split(":")[:2])
     except ValueError as err:
         raise vol.Invalid(f"Invalid time {value!r}; use HH:MM") from err
+    if not 0 <= hour <= 23 or minute not in (0, 30):
+        raise vol.Invalid(f"{hour:02d}:{minute:02d} is not allowed; Heatmiser only accepts HH:00 or HH:30")
     return hour, minute
+
+
+def _ordered(periods: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    times = [p["time"] for p in periods]
+    if times != sorted(times) or len(set(times)) != len(times):
+        raise vol.Invalid("Period times must be in order, earliest first, with no duplicates")
+    return periods
 
 
 PERIOD_SCHEMA = vol.Schema(
@@ -54,7 +63,7 @@ PERIOD_SCHEMA = vol.Schema(
 )
 SET_PROGRAM_SCHEMA = {
     vol.Required("day_type"): vol.In(["weekday", "weekend"]),
-    vol.Required("periods"): vol.All(cv.ensure_list, [PERIOD_SCHEMA], vol.Length(min=1, max=4)),
+    vol.Required("periods"): vol.All(cv.ensure_list, [PERIOD_SCHEMA], vol.Length(min=1, max=4), _ordered),
 }
 
 
