@@ -140,7 +140,7 @@ async def discover(host: str, port: int, seconds: float = 20) -> list[int]:
         while (left := end - time.monotonic()) > 0:
             try:
                 data = await asyncio.wait_for(reader.read(4096), left)
-            except TimeoutError:
+            except asyncio.TimeoutError:  # same as TimeoutError on Python 3.11+
                 break
             if not data:
                 break
