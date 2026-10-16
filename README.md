@@ -234,7 +234,9 @@ data:
 **Rules**
 - **Times must be on the hour or half hour** (`HH:00` / `HH:30`) and in order, earliest first.
 - **Temperatures must be 5–35 °C** in whole degrees.
-- **Fewer than 4 periods** leaves the remaining slots unused, marked the same way the thermostats mark them.
+- **Fewer than 4 periods** leaves the remaining slots unused, marked the same way the thermostats mark them. The Touchpad shows unused slots as `--:--`.
+
+On the Touchpad the four periods are labelled **Wake, Leave, Return and Sleep**, in that order. A program written from Home Assistant shows up there straight away (confirmed on a live system).
 
 The service refuses anything else before sending a byte. Heatmiser's protocol can reset a thermostat's whole program if it receives out-of-range values.
 
