@@ -22,6 +22,8 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.CLIMATE, Platform.SENSOR, Platform.SWITCH]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 SYNC_SCHEMA = vol.Schema({vol.Optional("force", default=False): cv.boolean})
+ADD_SCHEMA = vol.Schema({vol.Required("address"): vol.All(vol.Coerce(int), vol.Range(min=1, max=32)), vol.Required("name"): cv.string})
+REMOVE_SCHEMA = vol.Schema({vol.Required("address"): vol.All(vol.Coerce(int), vol.Range(min=1, max=32))})
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -35,6 +37,31 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             await hub.async_sync_clocks(force=call.data["force"])
 
     hass.services.async_register(DOMAIN, "sync_clocks", _svc_sync, schema=SYNC_SCHEMA)
+
+    def _entry() -> ConfigEntry:
+        entries = hass.config_entries.async_entries(DOMAIN)
+        if not entries:
+            raise HomeAssistantError("The Heatmiser bus integration isn't set up")
+        return entries[0]
+
+    async def _svc_add(call: ServiceCall) -> None:
+        """Add (or rename) a thermostat by bus address, e.g. one the Touchpad doesn't list or a stat added later."""
+        entry = _entry()
+        th = dict(entry.data[CONF_THERMOSTATS])
+        th[str(call.data["address"])] = call.data["name"]
+        hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_THERMOSTATS: th})
+        await hass.config_entries.async_reload(entry.entry_id)
+
+    async def _svc_remove(call: ServiceCall) -> None:
+        entry = _entry()
+        th = dict(entry.data[CONF_THERMOSTATS])
+        if th.pop(str(call.data["address"]), None) is None:
+            raise HomeAssistantError(f"No thermostat at address {call.data['address']}")
+        hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_THERMOSTATS: th})
+        await hass.config_entries.async_reload(entry.entry_id)
+
+    hass.services.async_register(DOMAIN, "add_thermostat", _svc_add, schema=ADD_SCHEMA)
+    hass.services.async_register(DOMAIN, "remove_thermostat", _svc_remove, schema=REMOVE_SCHEMA)
     return True
 
 

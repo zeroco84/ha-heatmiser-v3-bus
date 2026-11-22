@@ -24,3 +24,30 @@ set_program:
       example: '[{"time": "06:30", "temperature": 21}, {"time": "09:00", "temperature": 18}, {"time": "16:30", "temperature": 21}, {"time": "22:30", "temperature": 17}]'
       selector:
         object:
+
+add_thermostat:
+  fields:
+    address:
+      required: true
+      example: 11
+      selector:
+        number:
+          min: 1
+          max: 32
+          mode: box
+    name:
+      required: true
+      example: Dressing Room
+      selector:
+        text:
+
+remove_thermostat:
+  fields:
+    address:
+      required: true
+      example: 11
+      selector:
+        number:
+          min: 1
+          max: 32
+          mode: box

@@ -53,6 +53,7 @@ class HeatmiserBus:
         self.dcb: dict[int, bytes] = {}
         self.seen: dict[int, float] = {}
         self._avail: dict[int, bool] = {}
+        self._own_tried: dict[int, float] = {}
         self.connected = False
         self.touchpad_seen = 0.0
         self.last_rx = 0.0
@@ -217,7 +218,7 @@ class HeatmiserBus:
         raise HomeAssistantError(f"Heatmiser thermostat {addr} did not confirm the change")
 
     async def async_read(self, addr: int) -> None:
-        """Ask a thermostat for its data (used only when the Touchpad is silent)."""
+        """Ask a thermostat for its data (when the Touchpad is silent, or isn't polling that thermostat)."""
         frame = build_frame(addr, self.master, 0, 0, None)
         loop = asyncio.get_running_loop()
         async with self._lock:
@@ -261,6 +262,17 @@ class HeatmiserBus:
                     await self.async_read(addr)
                 except Exception as err:  # noqa: BLE001
                     _LOGGER.debug("Own poll of %s failed: %s", addr, err)
+            elif self.connected and self.addresses:
+                # The Touchpad is polling, but not necessarily every thermostat (one dropped from its zone list,
+                # or never added to it). Read any thermostat it hasn't covered for a minute ourselves.
+                due = [a for a in self.addresses if now - self.seen.get(a, 0) > 60 and now - self._own_tried.get(a, 0) > 20]
+                if due:
+                    addr = due[0]
+                    self._own_tried[addr] = now
+                    try:
+                        await self.async_read(addr)
+                    except Exception as err:  # noqa: BLE001
+                        _LOGGER.debug("Own poll of %s failed: %s", addr, err)
 
     # ------------------------------------------------------------------ features
     def clock_drift(self, addr: int) -> float | None:
