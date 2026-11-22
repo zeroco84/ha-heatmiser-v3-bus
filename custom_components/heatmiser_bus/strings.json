@@ -52,6 +52,30 @@
           "description": "1 to 4 periods, earliest first, each with a time (HH:MM, :00 or :30) and a temperature. Unused periods are cleared."
         }
       }
+    },
+    "add_thermostat": {
+      "name": "Add thermostat",
+      "description": "Add (or rename) a thermostat by its bus address, including one the Touchpad doesn't poll. The integration reloads.",
+      "fields": {
+        "address": {
+          "name": "Address",
+          "description": "Thermostat network address (1-32)."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name for the thermostat and its device."
+        }
+      }
+    },
+    "remove_thermostat": {
+      "name": "Remove thermostat",
+      "description": "Stop tracking a thermostat by its bus address. The integration reloads.",
+      "fields": {
+        "address": {
+          "name": "Address",
+          "description": "Thermostat network address (1-32)."
+        }
+      }
     }
   }
 }

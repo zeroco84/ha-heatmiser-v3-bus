@@ -7,6 +7,7 @@ It is built to sit **alongside an existing Heatmiser Touchpad** without upsettin
 - **Reading is passive.** The Touchpad already polls every thermostat every few seconds. This integration decodes that traffic instead of polling, so it adds nothing to the bus just to read temperatures.
 - **Changes are slipped into the gaps.** When you change something in Home Assistant, the command is sent in the quiet moment after a thermostat answers the Touchpad, then confirmed and retried if needed.
 - **No Touchpad?** If the bus has been silent for 30 seconds, the integration polls the thermostats itself, slowly. This mode is untested; see [Tested hardware](#tested-hardware).
+- **Thermostats the Touchpad skips are still read.** If the Touchpad isn't polling a thermostat you've added (for example one that dropped off its zone list), the integration reads that one itself, about once a minute, in the gaps.
 
 > **Not affiliated with Heatmiser.** "Heatmiser" is a trademark of Heatmiser UK Ltd and is used here only to say what this works with. This software controls heating equipment and you use it at your own risk (see the [licence](LICENSE)).
 
@@ -196,7 +197,18 @@ If auto-discovery hears nothing, you can type the thermostats in instead, one `a
 4=Kitchen Ensuite
 ```
 
-To add a thermostat later, remove the integration and add it again. Your entity IDs stay the same if you keep the same names.
+### Adding or renaming a thermostat later
+
+Use the `heatmiser_bus.add_thermostat` action with the thermostat's bus address and a name. It also works for a thermostat the Touchpad doesn't list: the integration reads it itself (see [How it behaves](#how-it-behaves)).
+
+```yaml
+action: heatmiser_bus.add_thermostat
+data:
+  address: 11
+  name: Dressing Room
+```
+
+Calling it for an address you already have renames that thermostat. `heatmiser_bus.remove_thermostat` (with `address`) stops tracking one. Either action saves the change and reloads the integration, which takes a few seconds. Entity IDs of existing thermostats don't change.
 
 ## How it behaves
 
@@ -205,7 +217,7 @@ To add a thermostat later, remove the integration and add it again. Your entity 
 - **Programs** are shown as attributes and can be changed with `heatmiser_bus.set_program`.
 - **The schedules live in the thermostats, not the Touchpad.** The Touchpad reads them and writes to a thermostat only when you edit something on it. A program written from Home Assistant therefore sticks, and the Touchpad shows it. Any write made by another master is logged and counted (`other_master_writes` on the bus sensor), so you can see if something else changes a thermostat.
 - **Changes are confirmed.** A change is only applied in Home Assistant once the thermostat acknowledges it, normally in under half a second. If no acknowledgement arrives after several tries, Home Assistant shows an error and nothing changes.
-- **Readings** update whenever the Touchpad polls each thermostat, typically every 10 seconds on a 20-thermostat network.
+- **Readings** update whenever the Touchpad polls each thermostat, typically every 10 seconds on a 20-thermostat network. A thermostat the Touchpad isn't polling is read by the integration itself about once a minute.
 - A thermostat shows as **unavailable** if it hasn't been heard for 3 minutes.
 
 ## Changing programs
@@ -259,6 +271,7 @@ The service refuses anything else before sending a byte. Heatmiser's protocol ca
 |---|---|
 | "Could not connect to the converter" | The IP and port, that the converter is in **TCP Server** mode, and that nothing else is blocking the port. |
 | "No thermostat replies were heard" | Polarity (swap A/B), 4800 8N1, and that the Touchpad is on and polling. Try the `nc` check above. |
+| A thermostat is missing from the Touchpad or from Home Assistant | If it answers on the bus, add it with `heatmiser_bus.add_thermostat` and its address. The integration polls it even if the Touchpad doesn't. |
 | Thermostats go unavailable now and then | Look at `binary_sensor.heatmiser_network_bus`. If it disconnects, check the network and PoE. If it stays connected, check the wiring at the tap point. |
 | A change shows an error | The bus was busy or the thermostat didn't answer. Try again. Check the `write_retries` / `write_failures` counters on the bus sensor. |
 | Clocks are out by an hour | Check Home Assistant's time zone (Settings → System → General), then press **Sync thermostat clocks**. |
